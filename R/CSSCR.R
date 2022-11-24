@@ -1,11 +1,12 @@
-CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, alpha = .8,
-                  converge = 1e-7, converge_2 = 1e-7, iteration = 1000, start_part = NULL){
-
+### without any model selection
+CSSCR_nocon <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, alpha = .8,
+                        converge = 1e-7, converge_2 = 1e-7, iteration = 1000, start_part = NULL){
+  
   ## fix the sparsity level to zero (p_sparse = 0)
   upper <- 1e9
   stop <- 0
   iter <- 0
-
+  
   all_member <- nrow(data_x)
   sum_var <- ncol(data_x)
   y_var <- ncol(data_y)
@@ -13,12 +14,12 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
   block_version_data[[1]] <- data_x[,1:n_var[1]]
   block_version_data[[2]] <- data_x[, (n_var[1] + 1):n_var[2]]
   n_total <- sum(n_com, n_distinct)
-
+  
   ## structure-induced zeros
   distinct_index <- vector("numeric")
   distinct_zeros <- vector("numeric")
   if (sum(ndistinct) != 0){
-
+    
     all_var <- 0
     ini_var <- 0
     for (p in 1:n_block){
@@ -26,23 +27,23 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
       ini_var <- ini_var + n_var[p]
       all_var <- c(all_var, ini_var)
     }
-
+    
     for (r.distinct in 1:sum(n_distinct)){
       distinct_zeros <- c(distinct_zeros, ((sum_var * (n_com + r.distinct - 1)) + all_var[distinct_index[r.distinct]] + 1): ((sum_var * (n_com + r.distinct - 1)) + all_var[(distinct_index[r.distinct] + 1)]))
     }
   }
-
+  
   # set the upper bound of minimum loss
   loss_all <- vector("numeric", length = iteration)
-
+  
   # the starting partition
   start <- vector("numeric", length = n_cluster)
   for (y in 1:n_cluster){
     start[y] <- round(all_member / n_cluster)
   }
   start[n_cluster] <- all_member - (n_cluster - 1) * round(all_member / n_cluster)
-
-
+  
+  
   py <- list()
   if(is.null(start_part)){
     cluster_assign <- RandomStart(start)[[2]]
@@ -50,13 +51,20 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
   if(!is.null(start_part)){
     cluster_assign <- start_part
   }
-
+  
+  ###################################################
+  #cluster_assign <- a
   svd_data <- svds(data_x, n_total)
   t <- svd_data$u
   x_square <- sum(data_x^2)
   y_square <- sum(data_y^2)
+  #beta <- .5
+  #alpha <- .5
   beta <- alpha * y_square / (alpha * y_square + (1-alpha) * x_square)
-
+  
+  #data_x <- MatrixCenter(data_x,1,0)
+  #beta <- 0.9
+  
   loss_min <- upper
   loss_p_all <- rep(NA, iteration)
   loss_t_all <- rep(NA, iteration)
@@ -71,8 +79,7 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
       px[distinct_zeros] <- 0
     }
     beta * sum((data_x - t %*% t(px))^2)
-
-
+    
     if (v == 1){
       for(k in 1:n_cluster){
         cluster_k <- which(cluster_assign == k)
@@ -81,20 +88,19 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
         py[[k]] <- t(y_k) %*% t_k %*% inv(t(t_k) %*% t_k)
       }
     }
-
+    
     ############################
-
+    
     t <- matrix(0, nrow = all_member, ncol = n_total)
     for (k in 1:n_cluster){
       cluster_k <- which(cluster_assign == k)
-      x_k <- data_x[cluster_k,]
-      xp <- beta * (x_k %*% px)
-      y_k <- data_y[cluster_k,]# - mean(data_y[cluster_k])
-      xp1 <- (1-beta) * (y_k %*% py[[k]])
-      xp_update <- xp + xp1
-      xp_svd <- svd(xp_update)
-      t[cluster_k,] <- (xp_svd$u %*% t(xp_svd$v)) / sqrt(n_cluster)
+      x_k <- data_x[cluster_k, ]
+      y_k <- data_y[cluster_k]# - mean(data_y[cluster_k])
+      zz <- beta * (diag(length(cluster_k)) %x% (t(px) %*% px)) + (1-beta)*(diag(length(cluster_k)) %x% (t(py[[k]]) %*% py[[k]]))
+      zy <- beta * ((diag(length(cluster_k)) %x% t(px)) %*% as.vector(t(x_k))) + (1-beta)*((diag(length(cluster_k)) %x% t(py[[k]])) %*% y_k)
+      t[cluster_k, ]<- matrix(inv(zz) %*% zy, nrow = length(cluster_k), byrow = TRUE)
     }
+    
     ####################################
     loss_t2 <- 0
     for(k in 1:n_cluster){
@@ -104,10 +110,10 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
       loss_k <- (1-beta) * sum((y_k - t_k %*% t(py[[k]]))^2)
       loss_t2 <- loss_t2+loss_k
     }
-
-    px <- t(data_x) %*% t
+    
+    px <- t(data_x) %*% t %*% inv(t(t) %*% t)
     px[distinct_zeros] <- 0
-
+    
     ######################################
     loss_t <- beta * sum((data_x - t %*% t(px))^2)
     #loss_t_all_1[v] <- loss_t
@@ -123,30 +129,30 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
       loss_t_all_2[v] <- loss_t_all_2[v] + loss_k
     }
     loss_t_all[v] <- loss_t
-
+    
     if(v>1){
       loss_min <- loss_t_all[v-1] -loss_t_all[v]
     }
   }
-
+  
   loss_final <- loss_t
   stop <- 0
   iter_all <- 0
   while(stop ==0 & iter_all < 50){
-
+    
     iter_all <- iter_all + 1
     member_exchange <- 0
     loss_n_all <- list()
-    for(n in 1:all_member){#length(cluster_assign)){
-      #loss_n <- rep(NA, n_cluster)
+    for(n in 1:all_member){
       loss_n_all[[n]] <- rep(NA, n_cluster)
       ## get the cluster membership
       cluster_n <- cluster_assign[n]
       cluster_assign_temp <- cluster_assign
+      
       py_temp <- list()
       px_temp <- list()
       t_temp <- list()
-
+      
       for(g in 1:n_cluster){
         if (g == cluster_n){
           py_temp[[g]] <- py
@@ -161,14 +167,14 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
           py_temp_k <- list()
           #loss_p_all <- rep(NA, iteration)
           loss_t_all <- rep(NA, iteration)
-
+          
           for (v in 1:iteration){
             if(loss_min < converge_2 & v > 10)  break
             loss_new <- rep(NA, all_member)
-
+            
             if (v == 1){
               t_temp_k <- t
-              px_temp_k <- t(data_x) %*% t_temp_k
+              px_temp_k <- t(data_x) %*% t_temp_k %*% inv(t(t_temp_k) %*% t_temp_k)
               px_temp_k[distinct_zeros] <- 0
               for(k in 1:n_cluster){
                 cluster_k <- which(cluster_assign_temp == k)
@@ -177,20 +183,19 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
                 py_temp_k[[k]] <- t(y_k) %*% t_k %*% inv(t(t_k) %*% t_k)
               }
             }
-
+            
             t_temp_k <- matrix(0, nrow = all_member, ncol = n_total)
             for (k in 1:n_cluster){
               cluster_k <- which(cluster_assign_temp == k)
               x_k <- data_x[cluster_k,]
               xp <- beta * (x_k %*% px)
               y_k <- data_y[cluster_k,]# - mean(data_y[cluster_k])
-              xp1 <-(1-beta) * (y_k %*% py_temp_k[[k]])
-              xp_update <- xp + xp1
-              xp_svd <- svd(xp_update)
-              t_temp_k[cluster_k,] <- xp_svd$u %*% t(xp_svd$v) / sqrt(n_cluster)
+              zz <- beta * (diag(length(cluster_k)) %x% (t(px_temp_k) %*% px_temp_k)) + (1-beta)*(diag(length(cluster_k)) %x% (t(py_temp_k[[k]]) %*% py_temp_k[[k]]))
+              zy <- beta * ((diag(length(cluster_k)) %x% t(px_temp_k)) %*% as.vector(t(x_k))) + (1-beta)*((diag(length(cluster_k)) %x% t(py_temp_k[[k]])) %*% y_k)
+              t_temp_k[cluster_k,] <- matrix(inv(zz) %*% zy, nrow = length(cluster_k), byrow = TRUE)
             }
-
-            px_temp_k <- t(data_x) %*% t_temp_k
+            
+            px_temp_k <- t(data_x) %*% t_temp_k %*% inv(t(t_temp_k) %*% t_temp_k)
             px_temp_k[distinct_zeros] <- 0
             px_temp[[k]] <- px_temp_k
             loss_t <- beta * sum((data_x - t_temp_k %*% t(px_temp_k))^2)
@@ -204,7 +209,7 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
               loss_t <- loss_t+loss_k
             }
             loss_t_all[v] <- loss_t
-
+            
             if(v>1){
               loss_min <- loss_t_all[v-1] -loss_t_all[v]
             }
@@ -221,12 +226,12 @@ CSSCR <- function(data_x,data_y,n_block, n_com, n_distinct, n_var, n_cluster, al
       px <- px_temp[[g]]
       t <- t_temp[[g]]
       loss_final <- min(loss_n_all[[n]])
-
+      
       if(cluster_assign[n] != cluster_n){
         member_exchange <- 1
       }
     }
-
+    
     if (member_exchange == 0){
       stop <- 1
     }

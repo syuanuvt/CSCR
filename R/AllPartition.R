@@ -1,3 +1,12 @@
+#' Create all possible partitions
+#'
+#' This function creates all possible partitions of component structure
+#'
+#' @param com_total The total number of components
+#' @param nblock The total number of data blocks
+#' @return A matrix where each column indicates a specific combination of components
+#' @export
+#' 
 AllPartition <- function(com_total, nblock){
   partition <- list()
   num <- 0

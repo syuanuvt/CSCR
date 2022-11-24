@@ -1,3 +1,11 @@
+#' Code for model selection with the scree ratio test
+#'
+#' Select the optimal value of the parameter with a scree ratio test
+#'
+#' @param loss A vector that indicates the loss value associated to different levels of model complexity
+#' @return The selection of the best point
+#' @export
+#' 
 ######### function to select the optimal value of the parameter with a scree ratio test
 ScreeSelect <- function(loss){
   loss_len <- length(loss)

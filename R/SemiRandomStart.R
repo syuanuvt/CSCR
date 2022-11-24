@@ -1,7 +1,7 @@
 ### obtain a semi-random cluster assignment (with a known partition)
 SemiRandomStart <- function(start_part, num_exchange = 0){
-
-
+  
+  
   ncluster <- length(unique(start_part))
   nobs <- length(start_part)
   final_part <- start_part
@@ -25,6 +25,6 @@ SemiRandomStart <- function(start_part, num_exchange = 0){
       }
     }
   }
-
+  
   return (final_part)
 }

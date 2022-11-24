@@ -1,4 +1,17 @@
-#### select the optimal number of components and clusters
+#' Model selection for CSCR
+#'
+#' This function select the optimal number of components and clusters for the existing
+#' Clusterwise Simultaneous Component Regression (CSCR) model.
+#'
+#' @param data_x The block of predictors
+#' @param data_x The vector of outcomes
+#' @param nvar The total number of variables
+#' @param nblock The total number of data blocks
+#' @param r_max The maximal number of components
+#' @param k_max The maximal number of clusters
+#' @return A list of the optimal number of clusters, components, the associated loss value, and the index of scree ratio
+#' @export
+#'
 ModelSelect <- function(data_x, data_y, nvar,nblock, r_max, k_max){
   ########### select the total number of components
   results <- list()
@@ -15,7 +28,7 @@ ModelSelect <- function(data_x, data_y, nvar,nblock, r_max, k_max){
   for (k in 1:k_max){
     results <- csca_cpp(data_x,nvar, nblock, opt_com, k, 200)
     results_loss[[k]] <- MultiCSCCR(data_x,data_y,nblock, opt_com, c(0,0), nvar, k, alpha = .99,
-                                    converge = 1e-3, iteration = 100, num_starts = 5, type = "known", con = TRUE,
+                                    converge = 1e-3, iteration = 100, num_starts = 5, type = "known",
                                     start_part = results$cluster_mem)
     loss_x[k] <- results_loss[[k]]$loss
   }
